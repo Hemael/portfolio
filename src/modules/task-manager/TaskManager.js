@@ -167,32 +167,41 @@ const TaskManager = () => {
         </button>
 
         <DndContext collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-          <div className="tm-grid-board-layout">
-            {boards.map((board) => (
-              <div key={board.id} className="tm-board-container">
-                <div className="tm-board-header">
-                  <h2>{board.title}</h2>
-                  <div className="tm-board-buttons">
-                    <button className="tm-edit" onClick={() => openCreateCard(board.id)}>
-                      + Add Card
-                    </button>
-                    <button
-                      className="tm-delete"
-                      onClick={() => handleDeleteBoard(board.id)}
-                      title="Supprimer le tableau"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </div>
-                <DnDBoard
-                  board={board}
-                  openCreateCard={openCreateCard}
-                  openViewerModal={openViewer}
-                />
+<div className="tm-grid-board-layout">
+  {[0, 1, 2, 3, 4].map((columnIndex) => (
+    <div key={columnIndex} className="tm-column">
+      {boards
+        .filter((_, i) => i % 5 === columnIndex)
+        .map((board) => (
+          <div key={board.id} className="tm-board-container">
+            <div className="tm-board-header">
+              <h2>{board.title}</h2>
+              <div className="tm-board-buttons">
+                <button
+                  className="tm-edit"
+                  onClick={() => openCreateCard(board.id)}
+                >
+                  + Add Card
+                </button>
+                <button
+                  className="tm-delete"
+                  onClick={() => handleDeleteBoard(board.id)}
+                  title="Supprimer le tableau"
+                >
+                  🗑️
+                </button>
               </div>
-            ))}
+            </div>
+            <DnDBoard
+              board={board}
+              openCreateCard={openCreateCard}
+              openViewerModal={openViewer}
+            />
           </div>
+        ))}
+    </div>
+  ))}
+</div>
         </DndContext>
       </div>
 
