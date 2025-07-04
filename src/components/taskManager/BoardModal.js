@@ -4,11 +4,12 @@ import "./TaskEditorModal.css";
 
 const BoardModal = ({ closeModal, handleCreateBoard }) => {
   const [title, setTitle] = useState("");
+  const [color, setColor] = useState("#000000");
   const mode = useSelector((state) => state.theme.mode);
 
   const handleSubmit = () => {
     if (title.trim()) {
-      handleCreateBoard(title.trim());
+      handleCreateBoard({ name: title.trim(), color });
       closeModal();
     }
   };
@@ -20,7 +21,11 @@ const BoardModal = ({ closeModal, handleCreateBoard }) => {
         onClick={(e) => e.stopPropagation()}
       >
         {/* Croix de fermeture */}
-        <button className="tm-close-button" onClick={closeModal} aria-label="Fermer">
+        <button
+          className="tm-close-button"
+          onClick={closeModal}
+          aria-label="Fermer"
+        >
           ×
         </button>
 
@@ -32,6 +37,15 @@ const BoardModal = ({ closeModal, handleCreateBoard }) => {
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+          />
+        </label>
+
+        <label>
+          Couleur du tableau :
+          <input
+            type="color"
+            value={color}
+            onChange={(e) => setColor(e.target.value)}
           />
         </label>
 

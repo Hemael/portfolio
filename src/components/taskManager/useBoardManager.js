@@ -1,95 +1,173 @@
-import { useState, useEffect, useCallback } from "react";
-
-const loadBoardsFromStorage = (workspaceId) => {
-  const data = localStorage.getItem(`boards_${workspaceId}`);
-  return data ? JSON.parse(data) : [];
-};
-
-const saveBoardsToStorage = (workspaceId, boards) => {
-  localStorage.setItem(`boards_${workspaceId}`, JSON.stringify(boards));
-};
+import { useState, useEffect } from "react";
+import TaskApi from "@service/TaskApi";
 
 export default function useBoardManager(workspaceId) {
   const [boards, setBoards] = useState([]);
   const [draggingBoardIndex, setDraggingBoardIndex] = useState(null);
 
   useEffect(() => {
-    const saved = loadBoardsFromStorage(workspaceId);
-    setBoards(
-      saved.length > 0
-        ? saved
-        : [{ id: Date.now(), title: "Nouveau tableau", cards: [] }]
-    );
+    const fetchBoards = async () => {
+      try {
+        const { data } = await TaskApi.getWorkspaceDetail(workspaceId);
+
+        const boardsArray = (data?.tableau || []).map(b => ({
+          id: b.id,
+          name: b.name,
+          color: b.color,
+          image: b.image,
+          createdAt: b.createdAt,
+          cards: b.card || []
+        }));
+        setBoards(boardsArray);
+      } catch (err) {
+        console.error("Erreur lors du chargement des boards :", err);
+      }
+    };
+
+    fetchBoards();
   }, [workspaceId]);
 
-  useEffect(() => {
-    saveBoardsToStorage(workspaceId, boards);
-    localStorage.setItem("lastWorkspace", workspaceId);
-  }, [boards, workspaceId]);
+  const createBoard = async ({ name, color }) => {
+    const trimmed = (name || "").trim();
 
-  const createOrUpdateCard = (boardId, cardId, cardData) => {
-    const { name, description } = cardData;
-    if (typeof name !== "string" || !name.trim()) return alert("Le nom est requis.");
-    if (typeof description !== "string" || !description.trim()) return alert("La description est requise.");
+    try {
+      const payload = { name: trimmed, color };
+      const { data } = await TaskApi.createTableau(workspaceId, payload);
 
-    setBoards((prevBoards) =>
-      prevBoards.map((board) => {
-        if (board.id !== boardId) return board;
-        if (cardId) {
-          return {
-            ...board,
-            cards: board.cards.map((c) => (c.id === cardId ? { ...c, ...cardData } : c)),
-          };
-        } else {
-          return {
-            ...board,
-            cards: [
-              ...board.cards,
-              {
-                ...cardData,
-                id: `card-${Date.now()}`,
-                createdAt: new Date().toISOString().split("T")[0],
-              },
-            ],
-          };
+      const [id, board] = Object.entries(data)[0]; // 👈 récupère la première entrée
+
+      setBoards(prev => [
+        ...prev,
+        { id, name: board.name, color: board.color, cards: [] }
+      ]);
+    } catch (err) {
+      console.error("Erreur lors de la création d’un board :", err);
+    }
+  };
+
+
+  const updateBoard = async (boardId, newTitle) => {
+    const trimmed = (newTitle || "").trim();
+    if (!trimmed) {
+      alert("Le nom ne peut pas être vide !");
+      return;
+    }
+    try {
+      await TaskApi.editTableau(workspaceId, boardId, { name: trimmed });
+      setBoards(prev =>
+        prev.map(board =>
+          board.id === boardId ? { ...board, name: trimmed } : board
+        )
+      );
+    } catch (err) {
+      console.error("Erreur lors de la mise à jour d’un board :", err);
+    }
+  };
+
+  const deleteBoard = async boardId => {
+    try {
+      await TaskApi.deleteTableau(workspaceId, boardId);
+      setBoards(prev => prev.filter(board => board.id !== boardId));
+    } catch (err) {
+      console.error("Erreur lors de la suppression d’un board :", err);
+    }
+  };
+
+const createOrUpdateCard = async (boardId, cardId, cardData) => {
+  const { name, description } = cardData;
+
+  if (!name?.trim()) {
+    alert("Le nom est requis.");
+    return;
+  }
+  if (!description?.trim()) {
+    alert("La description est requise.");
+    return;
+  }
+
+  if (cardId) {
+    try {
+      // 🔍 On trouve la carte actuelle
+      const board = boards.find(b => b.id === boardId);
+      const currentCard = board?.cards.find(c => c.id === cardId);
+
+      if (!currentCard) {
+        console.error("Carte introuvable pour mise à jour");
+        return;
+      }
+
+      // 🧾 On calcule les champs modifiés
+      const updates = {};
+      for (const key of Object.keys(cardData)) {
+        if (cardData[key] !== currentCard[key]) {
+          updates[key] = cardData[key];
         }
-      })
-    );
-  };
+      }
 
-  const deleteCard = (boardId, cardId) => {
-    setBoards((prevBoards) =>
-      prevBoards.map((board) =>
-        board.id === boardId
-          ? { ...board, cards: board.cards.filter((card) => card.id !== cardId) }
-          : board
-      )
-    );
-  };
+      if (Object.keys(updates).length === 0) {
+        console.log("Aucun champ modifié");
+        return;
+      }
+      delete updates.boardId
+      delete updates.cardId
 
-  const updateBoard = (boardId, newTitle) => {
-    const trimmed = newTitle.trim();
-    if (!trimmed) return alert("Le nom ne peut pas être vide !");
-    setBoards((prev) =>
-      prev.map((board) =>
-        board.id === boardId ? { ...board, title: trimmed } : board
-      )
-    );
-  };
+      await TaskApi.editCard(workspaceId, boardId, cardId, updates);
+      setBoards(prev =>
+        prev.map(board =>
+          board.id === boardId
+            ? {
+                ...board,
+                cards: board.cards.map(c =>
+                  c.id === cardId ? { ...c, ...updates } : c
+                )
+              }
+            : board
+        )
+      );
+    } catch (err) {
+      console.error("Erreur lors de la mise à jour de la carte :", err);
+    }
+  } else {
+    try {
+      const { data } = await TaskApi.createCard(workspaceId, boardId, { ...cardData });
+      const [id, card] = Object.entries(data)[0];
 
-  const deleteBoard = (boardId) => {
-    setBoards((prev) => prev.filter((board) => board.id !== boardId));
-  };
+      setBoards(prev =>
+        prev.map(board =>
+          board.id === boardId
+            ? {
+                ...board,
+                cards: [...board.cards, { id, ...card }]
+              }
+            : board
+        )
+      );
+    } catch (err) {
+      console.error("Erreur lors de la création de la carte :", err);
+    }
+  }
+};
 
-  const createBoard = (title) => {
-    const trimmed = title.trim();
-    if (!trimmed) return alert("Le nom du tableau est requis.");
-    setBoards((prev) => [...prev, { id: Date.now(), title: trimmed, cards: [] }]);
+  const deleteCard = async (boardId, cardId) => {
+    try {
+      await TaskApi.deleteCard(workspaceId, boardId, cardId);
+      setBoards(prev =>
+        prev.map(board =>
+          board.id === boardId
+            ? { ...board, cards: board.cards.filter(c => c.id !== cardId) }
+            : board
+        )
+      );
+    } catch (err) {
+      console.error("Erreur lors de la suppression de la carte :", err);
+    }
   };
 
   const dropCard = (sourceBoardId, targetBoardId, cardId, targetIndex) => {
     if (!sourceBoardId || !targetBoardId || !cardId) return;
 
+    console.log(targetIndex)
+    
     if (sourceBoardId === targetBoardId) {
       setBoards((prevBoards) =>
         prevBoards.map((board) => {
@@ -128,18 +206,37 @@ export default function useBoardManager(workspaceId) {
     }
   };
 
-  const dragStartBoard = (index) => setDraggingBoardIndex(index);
 
-  const dropBoard = (targetIndex) => {
-    if (draggingBoardIndex === null || draggingBoardIndex === targetIndex) return;
-    setBoards((prevBoards) => {
+
+  const dragStartBoard = index => setDraggingBoardIndex(index);
+
+const dropBoard = async targetIndex => {
+  if (draggingBoardIndex === null || draggingBoardIndex === targetIndex) return;
+
+  try {
+    const idTableau = boards[draggingBoardIndex].id;
+
+    const payload = {
+      oldPos: String(draggingBoardIndex),
+      newPos: String(targetIndex),
+      idTableau
+    };
+
+    await TaskApi.moveTableau(workspaceId, payload);
+
+    setBoards(prevBoards => {
       const newBoards = [...prevBoards];
       const [movedBoard] = newBoards.splice(draggingBoardIndex, 1);
       newBoards.splice(targetIndex, 0, movedBoard);
       return newBoards;
     });
-    setDraggingBoardIndex(null);
-  };
+  } catch (err) {
+    console.error("Erreur lors du déplacement du tableau :", err);
+  }
+
+  setDraggingBoardIndex(null);
+};
+
 
   return {
     boards,
@@ -150,6 +247,6 @@ export default function useBoardManager(workspaceId) {
     deleteCard,
     dropCard,
     dragStartBoard,
-    dropBoard,
+    dropBoard
   };
 }

@@ -111,6 +111,7 @@ const TaskManager = ({ workspaceId = "Default", sidebarVisible }) => {
     }
   };
 
+
   const sensors = useSensors(useSensor(PointerSensor));
 
   return (
