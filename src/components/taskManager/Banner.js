@@ -1,10 +1,32 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import banner from "@assets/banner.jpg";
 import avatar1 from "@assets/avatar.png";
 import avatar2 from "@assets/avatar.png";
 import './Banner.css'
 
+import { TaskApi } from "@service";
+
 const Banner = ({ workspaceId, sidebarVisible }) => {
+
+  const [workspace, setWorkspace] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchWorkspace = async () => {
+      try {
+        const { data } = await TaskApi.getWorkspaceDetail(workspaceId);
+        setWorkspace(data);
+      } catch (err) {
+        console.error("Erreur lors du chargement du workspace :", err);
+        setWorkspace(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWorkspace();
+  }, [workspaceId]);
+
   return (
     <div
       style={{
@@ -30,7 +52,10 @@ const Banner = ({ workspaceId, sidebarVisible }) => {
         <div className="tm-banner-search">
           <input type="text" placeholder="Rechercher..." />
         </div>
-        <h1 className="tm-banner-title">{workspaceId}</h1>
+            <h1 className="tm-banner-title">
+            {loading && "Chargement..."}
+            {!loading && workspace ? workspace.name : ""}
+        </h1>
         <div className="tm-banner-avatars">
           <img src={avatar1} alt="avatar1" />
           <img src={avatar2} alt="avatar2" />
