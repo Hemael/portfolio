@@ -13,7 +13,6 @@ import fields from './fieldsConfigLogin';
 import { evaluatePasswordStrength, getStrengthColor } from './lnFormUtils';
 
 import apiService from '@service/api/ApiService';
-import { setTheme } from '@store/themeSlice';
 import { login as loginAction } from '@store/authSlice';
 
 const LnModal = ({ type = 'login', onClose, onSubmit }) => {
@@ -78,7 +77,6 @@ const LnModal = ({ type = 'login', onClose, onSubmit }) => {
           localStorage.setItem(key, value);
         }
 
-        setTheme(localStorage.getItem('theme'))
         document.documentElement.style.setProperty("--jaune", localStorage.getItem('color'));
         
 
