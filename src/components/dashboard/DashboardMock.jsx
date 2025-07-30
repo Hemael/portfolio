@@ -10,12 +10,13 @@ const initialBlocks = [
   { id: "div5", content: "Bloc droit bas" },
   { id: "div6", content: "Notifications" },
   { id: "div7", content: "Section basse" },
+  { id: "div8", content: "Section baba" },
+  { id: "div9", content: "Section bedou" },
 ];
 
 const DashboardMock = () => {
   const [blocks, setBlocks] = useState(initialBlocks);
-
-  const handleDrag = ({ draggedId, targetId }) => {
+  const { onMouseDown } = useGhostDragAndDropDashboard(({ draggedId, targetId }) => {
     const draggedIndex = blocks.findIndex((b) => b.id === draggedId);
     const targetIndex = blocks.findIndex((b) => b.id === targetId);
     if (draggedIndex === -1 || targetIndex === -1) return;
@@ -24,17 +25,16 @@ const DashboardMock = () => {
     const [moved] = updated.splice(draggedIndex, 1);
     updated.splice(targetIndex, 0, moved);
     setBlocks(updated);
-  };
-
-  const { onMouseDown } = useGhostDragAndDropDashboard(handleDrag);
+  });
 
   return (
     <div className="parent dashboard-grid">
-      {blocks.map((block) => (
+      {blocks.map((block, index) => (
         <div
           key={block.id}
           className={`dashboard-block ${block.id}`}
           data-id={block.id}
+          style={{ order: index }}
           onMouseDown={onMouseDown}
         >
           {block.content}
